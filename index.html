@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI-BioX ConfEx</title>
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React / ReactDOM UMD -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Framer Motion (옵션: 없으면 폴백으로 동작) -->
+    <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
+    <!-- Babel (JSX 변환용) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>html,body,#root{height:100%}</style>
+  </head>
+  <body class="bg-slate-900 text-slate-100">
+    <div id="root"></div>
+
+    <!-- ✅ Babel에 React 프리셋 지정 (필수) -->
+    <script type="text/babel" data-presets="react">
+      const { useState, useMemo, useEffect } = React;
+
+      // framer-motion 있으면 사용, 없으면 간단 폴백
+      const fm = window.framerMotion;
+      const motion = fm?.motion ?? new Proxy({}, { get: () => (p)=> <div {...p} /> });
+
+      // 간단 아이콘 (inline SVG)
+      const ChevronRight = (props) => (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={props.className}>
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      );
+
+      // 트랙 색상 매핑
+      const TRACKS = {
+        ai:        { nameKo: 'AI',        nameEn: 'AI',        ring: 'ring-indigo-400',  text: 'text-indigo-400',  bg: 'bg-indigo-500/20',  border: 'border-indigo-400/60' },
+        bio:       { nameKo: 'BIO',       nameEn: 'BIO',       ring: 'ring-emerald-400', text: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-400/60' },
+        contents:  { nameKo: 'CONTENTS',  nameEn: 'CONTENTS',  ring: 'ring-pink-400',    text: 'text-pink-400',    bg: 'bg-pink-500/20',    border: 'border-pink-400/60' },
+        wellness:  { nameKo: 'WELLNESS',  nameEn: 'WELLNESS',  ring: 'ring-teal-400',    text: 'text-teal-400',    bg: 'bg-teal-500/20',    border: 'border-teal-400/60' },
+      };
+
+      const NavLink = ({ href, label, active }) => (
+        <a href={href} className={`text-sm md:text-[15px] px-3 py-2 rounded-md transition hover:bg-slate-700 ${active ? 'text-white bg-slate-800' : 'text-slate-300 hover:text-indigo-400'}`}>
+          {label}
+        </a>
+      );
+
+      const Section = ({ id, title, subtitle, children }) => (
+        <section id={id} className="scroll-mt-20 py-16 md:py-24">
+          <div className="max-w-6xl mx-auto px-5">
+            <motion.h2 initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-2xl md:text-3xl font-semibold tracking-tight text-white">
+              {title}
+            </motion.h2>
+            {subtitle && (
+              <motion.p initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-3 text-slate-400 max-w-3xl">
+                {subtitle}
+              </motion.p>
+            )}
+            <div className="mt-8">{children}</div>
+          </div>
+        </section>
+      );
+
+      const Pill = ({ children, className='' }) => (
+        <span className={`inline-flex items-center text-xs md:text-[13px] font-medium rounded-full border px-3 py-1 ${className}`}>{children}</span>
+      );
+
+      const ThemeCard = ({ title, bullets, track }) => {
+        const t = TRACKS[track];
+        return (
+          <motion.div initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className={`group rounded-2xl border border-slate-700 bg-slate-800 p-6 shadow-sm hover:shadow-md hover:ring-2 ${t.ring} transition`}>
+            <div className="flex items-center gap-3">
+              <div className={`rounded-xl border ${t.border} p-3 ${t.bg}`}>
+                <span className={`text-sm ${t.text}`}>●</span>
+              </div>
+              <h3 className="text-lg font-semibold text-white">{title}</h3>
+            </div>
+            <ul className="mt-5 space-y-2 text-slate-300 text-sm">
+              {bullets.map((b, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <ChevronRight className={`h-4 w-4 mt-0.5 ${t.text}`} />
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+        );
+      };
+
+      const ProgramCard = ({ title, desc, track }) => {
+        const t = TRACKS[track];
+        return (
+          <motion.div initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className={`rounded-2xl border border-slate-700 bg-slate-800 p-6 shadow-sm hover:shadow-md transition hover:ring-2 ${t.ring}`}>
+            <div className="flex items-center gap-3">
+              <div className={`rounded-xl border ${t.border} p-3 ${t.bg}`}>
+                <span className={`text-sm ${t.text}`}>◆</span>
+              </div>
+              <h3 className="text-lg font-semibold text-white">{title}</h3>
+            </div>
+            <p className="mt-3 text-slate-300 text-sm">{desc}</p>
+          </motion.div>
+        );
+      };
+
+      const FooterItem = ({ icon='◼', children }) => (
+        <div className="flex items-start gap-3 text-slate-300">
+          <span className="h-5 w-5 mt-0.5 text-indigo-400">{icon}</span>
+          <div className="text-sm">{children}</div>
+        </div>
+      );
+
+      function App() {
+        // 초기 언어: 한국어 고정
+        const [lang, setLang] = useState('ko');
+
+        const t = useMemo(() => ({
+          ko: {
+            nav: { about: 'About', themes: 'Main Themes', programs: 'Programs', schedule: 'Schedule', sponsors: 'Sponsors', venue: 'Venue', contact: 'Contact' },
+            reg: '사전등록',
+            heroDate: '12. 11 (Thu) – 13 (Sat) · COEX',
+            heroTitle: 'AI-BioX ConfEx with K-BioX',
+            heroBody: 'AI · BIO · Contents · Digital Wellness를 아우르는 글로벌 ConfEx 플랫폼. 산업 간 융합과 최신 동향, 미래 전략을 논의하는 국제 무대에서 다음 단계의 비전과 담론을 제시합니다.',
+            ctaStart: '사전등록 시작하기',
+            ctaAbout: '행사 소개 보기',
+            aboutTitle: 'About AI-BioX ConfEx',
+            aboutSub: '‘AI-BioX ConfEx’는 2017년 첫 개최 이후 AI, BIO, Contents, Digital Wellness를 아우르며 라이프메타 산업의 발전과 함께 성장해온 글로벌 행사입니다. K-BioX와 공동 주최하는 이번 행사는 4차 산업혁명 흐름 속에서 산업 간 융합과 최신 동향, 미래 전략을 논의하는 국제적 무대입니다.',
+            mainThemes: 'Main Themes',
+            programs: 'Programs',
+            programsSub: '멘토링, 포스터 세션, IR 피칭, 시상식, 네트워킹 리셉션 등 학술·산업·투자를 잇는 다양한 프로그램을 운영합니다.',
+            schedule: 'Schedule (예시)',
+            scheduleSub: '상세 프로그램은 확정 공지 후 업데이트됩니다.',
+            register: 'Registration',
+            registerBody: '사전등록은 곧 오픈됩니다. 단체 등록 및 스폰서십 문의는 운영사무국으로 연락해 주세요.',
+            venueTitle: 'Venue: COEX, Seoul',
+            venueSub: '서울 강남구 영동대로 513 · 삼성역/봉은사역 연결',
+            contactTitle: 'Contact',
+            contactSub: '문의는 ‘AI-BioX ConfEx’ 사무국과 공동 주최 측으로 부탁드립니다.',
+            contactOrg1: 'AI-BioX ConfEx 사무국 (에코마이스)',
+            contactOrg2: 'K-BioX 운영위원회',
+            becomeSponsor: '스폰서 신청',
+            downloadKit: '스폰서 키트 다운로드',
+            irTitle: 'IR Pitch — 스타트업 신청',
+            irBody: 'AI/Bio/Contents/Wellness 분야 혁신 스타트업의 IR 피칭 신청을 받습니다.',
+            form: { name: '이름', email: '이메일', org: '소속/회사', track: '트랙', deck: '피치덱 URL', submit: '제출', success: '제출 완료! 운영팀이 곧 연락드립니다.' },
+            footer: '© 2025 AI-BioX ConfEx · All rights reserved.',
+          },
+          en: {
+            nav: { about: 'About', themes: 'Main Themes', programs: 'Programs', schedule: 'Schedule', sponsors: 'Sponsors', venue: 'Venue', contact: 'Contact' },
+            reg: 'Register',
+            heroDate: 'Dec 11 (Thu) – 13 (Sat) · COEX',
+            heroTitle: 'AI-BioX ConfEx with K-BioX',
+            heroBody: 'A global ConfEx platform spanning AI, BIO, Contents, and Digital Wellness—where cross-industry trends and strategies are discussed.',
+            ctaStart: 'Start Registration',
+            ctaAbout: 'Learn More',
+            aboutTitle: 'About AI-BioX ConfEx',
+            aboutSub: 'Since 2017, AI-BioX ConfEx has grown with the life-meta industry. Co-hosted with K-BioX, it is an international stage for convergence and strategy.',
+            mainThemes: 'Main Themes',
+            programs: 'Programs',
+            programsSub: 'Mentoring, poster sessions, IR pitching, awards, and networking to bridge academia, industry, and investment.',
+            schedule: 'Schedule (Sample)',
+            scheduleSub: 'Full agenda will be updated after confirmation.',
+            register: 'Registration',
+            registerBody: 'Pre-registration opens soon. For group registration and sponsorships, contact the secretariat.',
+            venueTitle: 'Venue: COEX, Seoul',
+            venueSub: '513 Yeongdong-daero, Gangnam-gu · Connected to Samseong/Bongeunsa Stations',
+            contactTitle: 'Contact',
+            contactSub: 'Please contact the AI-BioX ConfEx Secretariat and the Co-host.',
+            contactOrg1: 'AI-BioX ConfEx Secretariat (Ecomice)',
+            contactOrg2: 'K-BioX Steering Committee',
+            becomeSponsor: 'Become a Sponsor',
+            downloadKit: 'Download Sponsor Kit',
+            irTitle: 'IR Pitch — Startup Application',
+            irBody: 'We accept IR pitch applications from startups in AI/Bio/Contents/Wellness.',
+            form: { name: 'Name', email: 'Email', org: 'Organization', track: 'Track', deck: 'Pitch Deck URL', submit: 'Submit', success: "Submitted! We'll be in touch shortly." },
+            footer: '© 2025 AI-BioX ConfEx · All rights reserved.',
+          },
+        })[lang], [lang]);
+
+        // ScrollSpy
+        const [active, setActive] = useState('top');
+        useEffect(() => {
+          const ids = ['top','about','themes','programs','schedule','sponsors','ir','venue','contact'];
+          const obs = new IntersectionObserver((entries) => {
+            entries.forEach((e) => { if (e.isIntersecting) setActive(e.target.id); });
+          }, { rootMargin: '-40% 0px -55% 0px', threshold: [0,0.5,1] });
+          ids.forEach((id) => { const el = document.getElementById(id); if (el) obs.observe(el); });
+          return () => obs.disconnect();
+        }, []);
+
+        // IR form
+        const [ok, setOk] = useState(false);
+        const submitIR = (e) => { e.preventDefault(); setOk(true); };
+
+        return (
+          <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
+            {/* NAV */}
+            <header className="sticky top-0 z-50 backdrop-blur bg-slate-900/80 border-b border-slate-700">
+              <div className="max-w-6xl mx-auto flex items-center justify-between px-5 py-3">
+                <a href="#top" className="font-semibold tracking-tight text-indigo-400 text-lg">AI-BioX ConfEx</a>
+                <nav className="hidden md:flex items-center">
+                  <NavLink href="#about"    label={t.nav.about}    active={active==='about'} />
+                  <NavLink href="#themes"   label={t.nav.themes}   active={active==='themes'} />
+                  <NavLink href="#programs" label={t.nav.programs} active={active==='programs'} />
+                  <NavLink href="#schedule" label={t.nav.schedule} active={active==='schedule'} />
+                  <NavLink href="#sponsors" label={t.nav.sponsors} active={active==='sponsors'} />
+                  <NavLink href="#ir"       label="IR"             active={active==='ir'} />
+                  <NavLink href="#venue"    label={t.nav.venue}    active={active==='venue'} />
+                  <NavLink href="#contact"  label={t.nav.contact}  active={active==='contact'} />
+                </nav>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setLang(lang==='ko'?'en':'ko')} className="inline-flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-white hover:border-indigo-500">
+                    {lang==='ko'?'EN':'KO'}
+                  </button>
+                  <a href="#register" className="inline-flex items-center rounded-xl bg-indigo-500 text-white text-sm md:text-[15px] px-4 py-2 shadow-sm hover:bg-indigo-400">{t.reg}</a>
+                </div>
+              </div>
+            </header>
+
+            {/* HERO */}
+            <section id="top" className="relative overflow-hidden">
+              <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
+              <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-pink-500/20 blur-3xl" />
+              <div className="max-w-6xl mx-auto px-5 py-16 md:py-24">
+                <motion.p initial={{ opacity: 0, y: 6 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-slate-400 text-sm md:text-[15px]">
+                  {t.heroDate}
+                </motion.p>
+                <motion.h1 initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                  className="mt-2 text-3xl md:text-5xl font-semibold tracking-tight text-white">
+                  {t.heroTitle}
+                </motion.h1>
+                <motion.p initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="mt-4 max-w-2xl text-slate-300">
+                  {t.heroBody}
+                </motion.p>
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  {Object.entries(TRACKS).map(([key, v]) => (
+                    <Pill key={key} className={`border ${v.border} ${v.bg} ${v.text}`}>{lang==='ko'? v.nameKo : v.nameEn}</Pill>
+                  ))}
+                </div>
+
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <a href="#register" className="inline-flex items-center rounded-xl bg-indigo-500 text-white px-5 py-3 text-sm md:text-[15px] shadow-sm hover:bg-indigo-400">
+                    {t.ctaStart}
+                  </a>
+                  <a href="#about" className="inline-flex items-center rounded-xl border border-slate-600 bg-slate-800 px-5 py-3 text-sm md:text-[15px] text-white hover:border-indigo-500">
+                    {t.ctaAbout}
+                  </a>
+                </div>
+              </div>
+            </section>
+
+            {/* ABOUT */}
+            <Section id="about" title={t.aboutTitle} subtitle={t.aboutSub}>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6">
+                  <div className="text-xs text-slate-400">Main Venue</div>
+                  <div className="mt-1 text-lg font-semibold text-white">COEX, Seoul</div>
+                </div>
+                <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6">
+                  <div className="text-xs text-slate-400">Date</div>
+                  <div className="mt-1 text-lg font-semibold text-white">12.11 (Thu) – 12.13 (Sat)</div>
+                </div>
+                <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6">
+                  <div className="text-xs text-slate-400">Co-host</div>
+                  <div className="mt-1 text-lg font-semibold text-white">K-BioX</div>
+                </div>
+              </div>
+            </Section>
+
+            {/* THEMES */}
+            <Section id="themes" title={t.mainThemes}>
+              <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <ThemeCard title="AI" track="ai" bullets={["Gen AI & LLM","AI Transformation","Data Governance in AI","Robotics – AI Convergence","Global Dynamics of AI","Industrial Applications of AI"]} />
+                <ThemeCard title="BIO" track="bio" bullets={["AI Drug Discovery","Precision Genomics","AI in Bioinformatics","Global Bioeconomy","Biotech Entrepreneurship","Global Biomedical Collaboration"]} />
+                <ThemeCard title="CONTENTS" track="contents" bullets={["Contents Industry Outlook","AI-Driven Creation","Platform & OTT Strategies","Metaverse / VR / AR","Policies in Contents Platform","Expansion of K-Contents"]} />
+                <ThemeCard title="WELLNESS" track="wellness" bullets={["Digital Mental Healthcare","Wearable Biosensing","Public Health in Digital Era","Institutional Wellness Program","Tech and Aging Society","Longevity & Health Tech"]} />
+              </div>
+            </Section>
+
+            {/* PROGRAMS */}
+            <Section id="programs" title={t.programs} subtitle={t.programsSub}>
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <ProgramCard title="멘토링 프로그램" desc="전문가와 함께하는 진로·연구·창업 멘토링" track="ai" />
+                <ProgramCard title="포스터 세션" desc="차세대 연구자의 성과 발표와 아이디어 확산" track="bio" />
+                <ProgramCard title="IR 피칭" desc="VC/AC와 만나는 혁신 비즈니스 무대" track="contents" />
+                <ProgramCard title="시상식" desc="우수 성과와 혁신 사례 시상" track="wellness" />
+                <ProgramCard title="네트워킹 리셉션" desc="국내외 석학·기업·정책결정자 교류" track="ai" />
+                <ProgramCard title="Newsletter & SNS" desc="소식을 받아보고 공식 채널을 팔로우" track="contents" />
+              </div>
+            </Section>
+
+            {/* SCHEDULE */}
+            <Section id="schedule" title={t.schedule} subtitle={t.scheduleSub}>
+              <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800">
+                <div className="grid grid-cols-12 bg-slate-700 px-4 py-3 text-sm font-semibold text-slate-200">
+                  <div className="col-span-3">시간</div>
+                  <div className="col-span-5">세션</div>
+                  <div className="col-span-2">트랙</div>
+                  <div className="col-span-2">장소</div>
+                </div>
+                {[
+                  { t: '09:30 – 10:00', s: '등록 & 환영', tr: TRACKS.ai,       v: 'Hall C' },
+                  { t: '10:00 – 11:00', s: 'Keynote: AI × Bio 미래전략', tr: TRACKS.ai,       v: 'Grand Ballroom' },
+                  { t: '11:15 – 12:15', s: 'Panel: Global Dynamics of AI', tr: TRACKS.ai,       v: 'Room 101' },
+                  { t: '13:30 – 15:00', s: 'Poster & IR Pitching',        tr: TRACKS.bio,      v: 'Expo Zone' },
+                  { t: '16:00 – 17:30', s: 'Digital Wellness & Longevity', tr: TRACKS.wellness, v: 'Room 203' },
+                ].map((row, i) => (
+                  <div key={i} className="grid grid-cols-12 px-4 py-3 text-sm text-slate-300 border-t border-slate-700">
+                    <div className="col-span-3">{row.t}</div>
+                    <div className="col-span-5">{row.s}</div>
+                    <div className="col-span-2">
+                      <span className={`inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-xs ${row.tr.border} ${row.tr.bg} ${row.tr.text}`}>
+                        {lang==='ko'?row.tr.nameKo:row.tr.nameEn}
+                      </span>
+                    </div>
+                    <div className="col-span-2">{row.v}</div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            {/* SPONSORS */}
+            <Section id="sponsors" title={t.nav.sponsors} subtitle="파트너/스폰서와 함께 생태계를 확장합니다.">
+              <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  {[1,2,3,4,5,6,7,8].map((i)=> (
+                    <div key={i} className="aspect-[3/2] rounded-xl border border-slate-700 bg-slate-900/40 flex items-center justify-center text-slate-400">Logo {i}</div>
+                  ))}
+                </div>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <a className="inline-flex items-center gap-2 rounded-xl bg-indigo-500 text-white px-4 py-2 text-sm hover:bg-indigo-400" href="#contact">🏢 {t.becomeSponsor}</a>
+                  <a className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800 text-white px-4 py-2 text-sm hover:border-indigo-500" href="#">📄 {t.downloadKit}</a>
+                </div>
+              </div>
+            </Section>
+
+            {/* IR FORM */}
+            <Section id="ir" title={t.irTitle} subtitle={t.irBody}>
+              <form onSubmit={submitIR} className="rounded-2xl border border-slate-700 bg-slate-800 p-6 grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">{t.form.name}</label>
+                  <input required className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">{t.form.email}</label>
+                  <input type="email" required className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">{t.form.org}</label>
+                  <input className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">{t.form.track}</label>
+                  <select className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option>AI</option>
+                    <option>BIO</option>
+                    <option>CONTENTS</option>
+                    <option>WELLNESS</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm text-slate-300 mb-1">{t.form.deck}</label>
+                  <input placeholder="https://..." className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div className="md:col-span-2 flex items-center justify-between">
+                  <button type="submit" className="inline-flex items-center rounded-xl bg-indigo-500 text-white px-5 py-2 text-sm hover:bg-indigo-400">{t.form.submit}</button>
+                  {ok && <span className="text-emerald-400 text-sm">{t.form.success}</span>}
+                </div>
+              </form>
+            </Section>
+
+            {/* REGISTER */}
+            <Section id="register" title={t.register}>
+              <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6 md:p-8 shadow-sm">
+                <p className="text-slate-300">{t.registerBody}</p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <a className="inline-flex items-center rounded-xl bg-indigo-500 text-white px-5 py-3 text-sm md:text-[15px] shadow-sm hover:bg-indigo-400" href="#contact">
+                    {lang==='ko'?'문의하기':'Contact'}
+                  </a>
+                  <a className="inline-flex items-center rounded-xl border border-slate-600 bg-slate-800 px-5 py-3 text-sm md:text-[15px] text-white hover:border-indigo-500" href="#programs">
+                    {lang==='ko'?'프로그램 보기':'See Programs'}
+                  </a>
+                </div>
+              </div>
+            </Section>
+
+            {/* VENUE */}
+            <Section id="venue" title={t.venueTitle} subtitle={t.venueSub}>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6"><FooterItem icon="📍">영동대로 513, COEX</FooterItem></div>
+                <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6"><FooterItem icon="🧭">Subway: 삼성역(2), 봉은사역(9)</FooterItem></div>
+                <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6"><FooterItem icon="📅">12.11 (Thu) – 12.13 (Sat)</FooterItem></div>
+              </div>
+            </Section>
+
+            {/* CONTACT */}
+            <Section id="contact" title={t.contactTitle} subtitle={t.contactSub}>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6 space-y-4">
+                  <h3 className="text-white font-semibold">AI-BioX ConfEx 사무국 (에코마이스)</h3>
+                  <FooterItem icon="🌐">웹사이트: ecomice.com</FooterItem>
+                  <FooterItem icon="✉️">E-mail: abcdx@ecomice.com</FooterItem>
+                  <FooterItem icon="👥">Tel. 02-6956-6834</FooterItem>
+                </div>
+                <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6 space-y-4">
+                  <h3 className="text-white font-semibold">K-BioX 운영위원회</h3>
+                  <FooterItem icon="🌐">웹사이트: kbiox.net</FooterItem>
+                  <FooterItem icon="✉️">E-mail: globalkbiox@gmail.com</FooterItem>
+                  <FooterItem icon="👥">Tel. 1-413-687-4171</FooterItem>
+                </div>
+              </div>
+            </Section>
+
+            {/* FOOTER */}
+            <footer className="border-t border-slate-700 bg-slate-900">
+              <div className="max-w-6xl mx-auto px-5 py-10">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="text-sm text-slate-400">{t.footer}</div>
+                  <div className="flex items-center gap-4 text-slate-400">
+                    <a href="#" className="hover:text-indigo-400" aria-label="LinkedIn">in</a>
+                    <a href="#" className="hover:text-indigo-400" aria-label="Twitter">X</a>
+                    <a href="#" className="hover:text-indigo-400" aria-label="Website">↗</a>
+                  </div>
+                </div>
+              </div>
+            </footer>
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>
